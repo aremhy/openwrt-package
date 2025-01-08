@@ -1,46 +1,57 @@
-bootstrap: bootstrap-web bootstrap-server
+# SPDX-License-Identifier: GPL-3.0-only
+# Copyright (c) 2020-2024 sirpdboy  herboy2008@gmail.com
+#
 
-bootstrap-web:
-	cd web && pnpm install --frozen-lockfile
+include $(TOPDIR)/rules.mk
 
-bootstrap-server:
-	# cd server && cargo check
+PKG_NAME:=homebox
+PKG_VERSION:=0.0.0-dev.2023102203
+PKG_RELEASE:=3
 
-run-server:
-	cd server && cargo run
+ifeq ($(ARCH),aarch64)
+	H_ARCH:=arm64
 
-run-web:
-	cd web && pnpm start
+else ifeq ($(ARCH),arm)
+	H_ARCH:=arm
 
-build-server:
-	cd server && HOMEBOX_ENV=production cargo build --locked --release
+else ifeq ($(ARCH),i386)
+	H_ARCH:=386
 
-build-web:
-	cd web && pnpm run build
+else ifeq ($(ARCH),mips)
+	H_ARCH:=mips
 
-build: build-web build-server
+else ifeq ($(ARCH),mipsel)
+	H_ARCH:=mips
 
-build-arch:
-	rustup target add $(TARGET)
-	rustup toolchain install stable-$(TARGET)
-	cd server && HOMEBOX_ENV=production cargo build --locked --release --target $(TARGET)
-	mkdir -p build/arch
-	cp server/target/$(TARGET)/release/homebox build/arch/homebox-$(FILE)
+else ifeq ($(ARCH),x86_64)
+	H_ARCH:=amd64
+endif
 
-pack-arch:
-	bash ./script/pack-arch.sh $(TAG)
+include $(INCLUDE_DIR)/package.mk
 
-build-all-arch: build-darwin build-windows build-linux build-android
+define Package/$(PKG_NAME)
+  SECTION:=net
+  CATEGORY:=Network
+  TITLE:=A Toolbox for Home Local Networks
+  URL:=https://github.com/XGHeaven/homebox
+  DEPENDS:=@(i386||x86_64||arm||aarch64||mipsel||mips)
+endef
 
-build-darwin:
-	make build-arch TARGET=aarch64-apple-darwin FILE=darwin-arm64
-	make build-arch TARGET=x86_64-apple-darwin FILE=darwin-amd64
+define Package/$(PKG_NAME)/description
+  A Toolbox for Home Local Networks Speed Test
+endef
 
-build-windows:
-	make build-arch TARGET=x86_64-pc-windows-msvc FILE=windows-amd64.exe
-	make build-arch TARGET=i686-pc-windows-msvc FILE=windows-386.exe
+define Build/Prepare
+	[ ! -f $(PKG_BUILD_DIR)/server_Linux_$(H_ARCH).tar.gz ] && wget https://github.com/XGHeaven/homebox/releases/download/v$(PKG_VERSION)/server-linux-$(H_ARCH).tar.gz -O $(PKG_BUILD_DIR)/server-linux-$(H_ARCH).tar.gz
+	tar -xzvf $(PKG_BUILD_DIR)/server-linux-$(H_ARCH).tar.gz -C $(PKG_BUILD_DIR)
+endef
 
-build-linux:
-	make build-arch TARGET=x86_64-unknown-linux-gnu FILE=linux-amd64
-	make build-arch TARGET=aarch64-unknown-linux-gnu FILE=linux-arm64
-	make build-arch TARGET=i686-unknown-linux-gnu FILE=linux-386
+define Build/Compile
+endef
+
+define Package/$(PKG_NAME)/install
+	$(INSTALL_DIR) $(1)/usr/bin
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/server-linux-$(H_ARCH) $(1)/usr/bin/homebox
+endef
+
+$(eval $(call BuildPackage,$(PKG_NAME)))
